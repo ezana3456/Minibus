@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MinibusGo Admin</title>
+<style>
+  :root { --blue:#1457D8; --blue-l:#E8F0FF; --yellow:#F6B91A; --bg:#F4F7FC; --text:#14203A; --muted:#6B7794; --line:#E3E9F4; --green:#1E9E5A; --red:#D64545; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--bg); color:var(--text); }
+  button, input, select { font: inherit; }
+  .login { max-width: 360px; margin: 12vh auto; background:#fff; padding: 28px; border-radius: 16px; box-shadow: 0 6px 30px #1b3a7822; }
+  .login h1 { margin: 0 0 4px; color: var(--blue); } .login h1 span { color: var(--yellow); }
+  .shell { display:flex; min-height:100vh; }
+  nav { width: 210px; background:#fff; border-right:1px solid var(--line); padding: 16px 10px; flex-shrink:0; }
+  nav .brand { font-size: 20px; font-weight: 800; color: var(--blue); padding: 4px 10px 14px; } nav .brand span { color: var(--yellow); }
+  nav a { display:block; padding: 10px 12px; border-radius: 10px; color: var(--text); text-decoration:none; font-weight:600; margin-bottom: 2px; }
+  nav a.on { background: var(--blue-l); color: var(--blue); }
+  nav .who { margin-top: 20px; padding: 10px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); }
+  main { flex:1; padding: 22px; min-width: 0; }
+  h1 { font-size: 24px; margin: 0; }
+  .bar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom: 16px; } .bar h1 { flex:1; }
+  .card { background:#fff; border-radius:14px; padding:16px; box-shadow: 0 2px 10px #1b3a780f; margin-bottom: 16px; }
+  .grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin-bottom: 16px; }
+  .stat .n { font-size: 28px; font-weight: 800; } .stat .l { color: var(--muted); font-size: 13px; }
+  table { width:100%; border-collapse: collapse; }
+  th { text-align:left; font-size:12px; color:var(--muted); font-weight:600; padding: 8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  td { padding: 10px 8px; border-bottom:1px solid var(--line); vertical-align: middle; }
+  tr:last-child td { border-bottom: 0; }
+  .scroll { overflow-x:auto; }
+  input, select { padding: 9px 12px; border:1px solid var(--line); border-radius: 10px; background:#fff; width:100%; }
+  .bar input, .bar select { width:auto; }
+  label { display:block; font-size: 13px; color: var(--muted); margin: 10px 0 4px; }
+  .btn { background: var(--blue); color:#fff; border:0; padding: 9px 16px; border-radius: 10px; font-weight: 700; cursor:pointer; }
+  .btn.sec { background: var(--blue-l); color: var(--blue); } .btn.red { background:#FCE9E9; color: var(--red); }
+  .btn.sm { padding: 5px 10px; font-size: 13px; margin-right: 4px; }
+  .btn:disabled { opacity:.5; cursor:default; }
+  .pill { display:inline-block; padding: 2px 10px; border-radius: 10px; font-size: 12px; font-weight: 700; }
+  .ok { background:#E3F6EC; color: var(--green); } .bad { background:#FCE9E9; color: var(--red); } .info { background: var(--blue-l); color: var(--blue); }
+  .muted { color: var(--muted); } .right { text-align:right; }
+  .barline { display:flex; align-items:center; gap:10px; margin: 6px 0; font-size: 13px; }
+  .barline .b { height: 14px; background: var(--blue); border-radius: 7px; min-width: 3px; }
+  .overlay { position: fixed; inset:0; background:#0b1a3a77; display:flex; align-items:flex-start; justify-content:center; padding: 4vh 12px; overflow:auto; z-index: 10; }
+  .modal { background:#fff; border-radius: 16px; padding: 22px; width: 100%; max-width: 560px; }
+  .modal h2 { margin: 0 0 8px; }
+  .row2 { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .toast { position: fixed; bottom: 20px; left:50%; transform: translateX(-50%); background:#14203A; color:#fff; padding: 12px 20px; border-radius: 12px; z-index: 20; max-width: 90vw; }
+  .toast.err { background: var(--red); }
+  .big { font-size: 20px; font-weight: 800; padding: 16px; border-radius: 12px; margin: 12px 0; }
+  @media (max-width: 760px) { .shell { flex-direction: column; } nav { width:100%; display:flex; overflow-x:auto; padding: 8px; } nav .brand, nav .who { display:none; } nav a { white-space:nowrap; } }
+  @media print { body > .shell, .toast { display:none !important; } .overlay { position:static; background:none; padding:0; } .modal { max-width:none; } .noprint { display:none !important; } }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const money = (n) => Number(n || 0).toLocaleString('en-US') + ' ETB';
+const addis = (iso) => new Date(new Date(iso).getTime() + 3 * 3600e3);
+const pad = (n) => String(n).padStart(2, '0');
+const hhmm = (iso) => { const d = addis(iso); return pad(d.getUTCHours()) + ':' + pad(d.getUTCMinutes()); };
+const dateStr = (iso) => addis(iso).toISOString().slice(0, 10);
+const today = () => new Date(Date.now() + 3 * 3600e3).toISOString().slice(0, 10);
+
+let token = localStorage.getItem('adminToken');
+let me = null;
+const state = { tripDate: today() };
+
+async function api(path, opts = {}) {
+  const res = await fetch('/api/admin' + path, {
+    method: opts.method || 'GET',
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}) },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (res.status === 401 && path !== '/login') { logout(); throw new Error(data.error || 'Please log in'); }
+  if (!res.ok) throw new Error(data.error || 'Something went wrong');
+  return data;
+}
+function toast(msg, err) {
+  const t = document.createElement('div'); t.className = 'toast' + (err ? ' err' : ''); t.textContent = msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 3500);
+}
+function modal(html) {
+  const o = document.createElement('div'); o.className = 'overlay';
+  o.innerHTML = '<div class="modal">' + html + '</div>';
+  o.addEventListener('mousedown', (e) => { if (e.target === o) o.remove(); });
+  document.body.appendChild(o); return o;
+}
+const guard = (fn) => async (...a) => { try { await fn(...a); } catch (e) { toast(e.message, true); } };
+
+function logout() { token = null; me = null; localStorage.removeItem('adminToken'); render(); }
+
+// ---------------- login ----------------
+function renderLogin() {
+  $('#app').innerHTML = `<form class="login" id="f">
+    <h1>Minibus<span>Go</span></h1><p class="muted" style="margin-top:0">Admin panel</p>
+    <label>Username</label><input id="u" autocomplete="username" autofocus>
+    <label>Password</label><input id="p" type="password" autocomplete="current-password">
+    <p id="err" style="color:var(--red);min-height:20px"></p>
+    <button class="btn" style="width:100%">Log in</button></form>`;
+  $('#f').onsubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const r = await api('/login', { method: 'POST', body: { username: $('#u').value, password: $('#p').value } });
+      token = r.token; localStorage.setItem('adminToken', token); render();
+    } catch (er) { $('#err').textContent = er.message; }
+  };
+}
+
+// ---------------- shell ----------------
+const PAGES = {
+  dashboard: ['Dashboard', ['admin', 'operator'], pageDashboard],
+  trips: ['Trips', ['admin', 'operator', 'scanner'], pageTrips],
+  bookings: ['Bookings', ['admin', 'operator'], pageBookings],
+  scan: ['Scan ticket', ['admin', 'operator', 'scanner'], pageScan],
+  messages: ['Messages to staff', ['admin', 'operator'], pageMessages],
+  operators: ['Operators', ['admin'], pageOperators],
+  routes: ['Routes', ['admin'], pageRoutes],
+  staff: ['Staff accounts', ['admin'], pageStaff],
+};
+async function render() {
+  if (!token) return renderLogin();
+  if (!me) { try { me = await api('/me'); } catch { return renderLogin(); } }
+  const allowed = Object.entries(PAGES).filter(([, p]) => p[1].includes(me.role));
+  let page = location.hash.slice(1);
+  if (!allowed.find(([k]) => k === page)) page = allowed[0][0];
+  $('#app').innerHTML = `<div class="shell"><nav><div class="brand">Minibus<span>Go</span></div>
+    ${allowed.map(([k, p]) => `<a href="#${k}" class="${k === page ? 'on' : ''}">${p[0]}</a>`).join('')}
+    <div class="who">${esc(me.fullName || me.username)}<br>${esc(me.role)}${me.operatorName ? ' · ' + esc(me.operatorName) : ''}<br>
+    <a href="#" id="out" style="padding:6px 0;color:var(--blue)">Log out</a></div></nav><main id="c"></main></div>`;
+  $('#out').onclick = (e) => { e.preventDefault(); logout(); };
+  $('#c').innerHTML = '<p class="muted">Loading…</p>';
+  try { await PAGES[page][2]($('#c')); } catch (e) { $('#c').innerHTML = `<p style="color:var(--red)">${esc(e.message)}</p>`; }
+}
+window.addEventListener('hashchange', render);
+
+// ---------------- dashboard ----------------
+async function pageDashboard(c) {
+  const days = state.days || 7;
+  const s = await api('/stats?days=' + days);
+  const max = Math.max(1, ...s.daily.map((d) => d.revenue));
+  c.innerHTML = `<div class="bar"><h1>Dashboard</h1>
+    <select id="days">${[7, 30, 90].map((d) => `<option value="${d}" ${d === days ? 'selected' : ''}>Last ${d} days</option>`).join('')}</select></div>
+    <div class="grid">
+      <div class="card stat"><div class="n">${s.bookings}</div><div class="l">Paid bookings</div></div>
+      <div class="card stat"><div class="n">${s.seats}</div><div class="l">Seats sold</div></div>
+      <div class="card stat"><div class="n">${money(s.revenue)}</div><div class="l">Revenue</div></div></div>
+    <div class="card"><b>Revenue by day</b>
+      ${s.daily.length ? s.daily.map((d) => `<div class="barline"><span style="width:86px" class="muted">${esc(d.day)}</span>
+        <div class="b" style="width:${Math.round((d.revenue / max) * 60)}%"></div><span>${money(d.revenue)}</span></div>`).join('') : '<p class="muted">No paid bookings in this period yet.</p>'}</div>
+    <div class="card"><b>Top routes</b><div class="scroll"><table><tr><th>Route</th><th>Bookings</th><th class="right">Revenue</th></tr>
+      ${s.topRoutes.map((r) => `<tr><td>${esc(r.origin)} → ${esc(r.destination)}</td><td>${r.bookings}</td><td class="right">${money(r.revenue)}</td></tr>`).join('') || '<tr><td colspan=3 class="muted">Nothing yet</td></tr>'}</table></div></div>`;
+  $('#days').onchange = (e) => { state.days = Number(e.target.value); render(); };
+}
+
+// ---------------- trips ----------------
+async function pageTrips(c) {
+  const canManage = me.role !== 'scanner';
+  const trips = await api('/trips?date=' + state.tripDate);
+  c.innerHTML = `<div class="bar"><h1>Trips</h1>
+    <input type="date" id="d" value="${state.tripDate}">
+    ${canManage ? '<button class="btn" id="add">+ Add trips</button>' : ''}</div>
+    <div class="card scroll"><table><tr><th>Time</th><th>Route</th><th>Operator</th><th>Vehicle</th><th>Bus / Driver</th><th>Price</th><th>Seats sold</th><th>Status</th><th></th></tr>
+    ${trips.map((t) => `<tr>
+      <td><b>${hhmm(t.departure_at)}</b></td><td>${esc(t.origin)} → ${esc(t.destination)}</td><td>${esc(t.operator)}</td>
+      <td>${esc(t.vehicle_type)}</td><td>${esc(t.bus_number || '-')} / ${esc(t.driver_name || '-')}</td><td>${money(t.price)}</td><td>${t.sold} / ${t.total_seats}</td>
+      <td><span class="pill ${t.status === 'active' ? 'ok' : 'bad'}">${esc(t.status)}</span></td>
+      <td class="right" style="white-space:nowrap"><button class="btn sm sec" data-pax="${t.id}">Passengers</button>
+      ${canManage && t.status === 'active' ? `<button class="btn sm sec" data-edit="${t.id}">Edit</button><button class="btn sm red" data-cancel="${t.id}">Cancel</button>` : ''}</td></tr>`).join('')
+      || '<tr><td colspan=9 class="muted">No trips on this date.</td></tr>'}</table></div>`;
+  $('#d').onchange = (e) => { state.tripDate = e.target.value; render(); };
+  if (canManage) $('#add').onclick = guard(() => addTripsModal());
+  const byId = Object.fromEntries(trips.map((t) => [t.id, t]));
+  c.querySelectorAll('[data-pax]').forEach((b) => b.onclick = guard(() => passengersModal(byId[b.dataset.pax])));
+  c.querySelectorAll('[data-edit]').forEach((b) => b.onclick = () => editTripModal(byId[b.dataset.edit]));
+  c.querySelectorAll('[data-cancel]').forEach((b) => b.onclick = guard(() => cancelTrip(byId[b.dataset.cancel])));
+}
+
+const VEHICLES = { 'Toyota Hiace|14': 'Toyota Hiace (14 seats)', 'Toyota Coaster|28': 'Toyota Coaster (28 seats)', 'Other|0': 'Other (enter seats)' };
+async function addTripsModal() {
+  const [routes, ops] = await Promise.all([api('/routes'), api('/operators')]);
+  const o = modal(`<h2>Add trips</h2><p class="muted" style="margin-top:0">Creates the same trips for several days in one go.</p>
+    <label>Route</label><select id="r">${routes.map((r) => `<option value="${r.id}">${esc(r.origin)} → ${esc(r.destination)}</option>`).join('')}</select>
+    ${me.role === 'admin' ? `<label>Operator</label><select id="o">${ops.map((x) => `<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select>` : ''}
+    <div class="row2"><div><label>First date</label><input type="date" id="sd" value="${today()}"></div>
+      <div><label>Number of days</label><input type="number" id="dy" value="7" min="1" max="60"></div></div>
+    <label>Departure times (24-hour, comma separated)</label><input id="tm" value="07:00, 15:00">
+    <div class="row2"><div><label>Vehicle</label><select id="v">${Object.entries(VEHICLES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div>
+      <div><label>Seats</label><input type="number" id="st" value="14" min="1" max="60"></div></div>
+    <label>Price per seat (ETB)</label><input type="number" id="pr" min="1">
+    <p style="text-align:right"><button class="btn sec" id="x">Close</button> <button class="btn" id="go">Create trips</button></p>`);
+  $('#v', o).onchange = (e) => { const s = Number(e.target.value.split('|')[1]); if (s) $('#st', o).value = s; };
+  $('#x', o).onclick = () => o.remove();
+  $('#go', o).onclick = guard(async () => {
+    const [vt] = $('#v', o).value.split('|');
+    const r = await api('/trips', { method: 'POST', body: {
+      routeId: Number($('#r', o).value), operatorId: $('#o', o) ? Number($('#o', o).value) : undefined,
+      startDate: $('#sd', o).value, days: Number($('#dy', o).value),
+      times: $('#tm', o).value.split(',').map((x) => x.trim()).filter(Boolean),
+      vehicleType: vt === 'Other' ? 'Minibus' : vt, totalSeats: Number($('#st', o).value), price: Number($('#pr', o).value) } });
+    o.remove(); toast(`${r.created} trips created` + (r.skipped ? `, ${r.skipped} skipped (past or already exist)` : '')); render();
+  });
+}
+
+function editTripModal(t) {
+  const o = modal(`<h2>Edit trip</h2><p class="muted" style="margin-top:0">${esc(t.origin)} → ${esc(t.destination)} · ${esc(t.operator)}</p>
+    <div class="row2"><div><label>Date</label><input type="date" id="dt" value="${dateStr(t.departure_at)}"></div>
+    <div><label>Departure time</label><input type="time" id="tm" value="${hhmm(t.departure_at)}"></div></div>
+    <label>Price per seat (ETB)</label><input type="number" id="pr" value="${t.price}">
+    <div class="row2"><div><label>Bus number</label><input id="bus" value="${esc(t.bus_number || '')}" placeholder="Bus 05"></div>
+    <div><label>Driver</label><input id="drv" value="${esc(t.driver_name || '')}" placeholder="Driver name"></div></div>
+    <p class="muted">A new price only affects new bookings. If you change the time and people already booked, tell them.</p>
+    <p style="text-align:right"><button class="btn sec" id="x">Close</button> <button class="btn" id="go">Save</button></p>`);
+  $('#x', o).onclick = () => o.remove();
+  $('#go', o).onclick = guard(async () => {
+    const body = { price: Number($('#pr', o).value), busNumber: $('#bus', o).value, driverName: $('#drv', o).value };
+    const when = `${$('#dt', o).value}T${$('#tm', o).value}`;
+    if (when !== `${dateStr(t.departure_at)}T${hhmm(t.departure_at)}`) body.departureAt = when;
+    await api('/trips/' + t.id, { method: 'PATCH', body });
+    o.remove(); toast('Trip updated'); render();
+  });
+}
+
+async function cancelTrip(t) {
+  if (!confirm(`Cancel the ${hhmm(t.departure_at)} trip ${t.origin} → ${t.destination}?\n\n${t.sold} seat(s) are already sold. Those bookings will be cancelled and you must refund them.`)) return;
+  const r = await api(`/trips/${t.id}/cancel`, { method: 'POST' });
+  const o = modal(`<h2>Trip cancelled</h2>${r.refundsDue.length
+    ? `<p>Please refund and tell these passengers:</p><div class="scroll"><table><tr><th>Booking</th><th>Phone</th><th class="right">Refund</th></tr>
+      ${r.refundsDue.map((x) => `<tr><td>${esc(x.ref)}</td><td>${esc(x.phone)}</td><td class="right">${money(x.amount)}</td></tr>`).join('')}</table></div>`
+    : '<p>No paid bookings were affected.</p>'}
+    <p style="text-align:right"><button class="btn" id="x">Done</button></p>`);
+  $('#x', o).onclick = () => { o.remove(); render(); };
+}
+
+async function passengersModal(t) {
+  const list = await api(`/trips/${t.id}/passengers`);
+  const o = modal(`<h2>Passenger list</h2><p class="muted" style="margin-top:0">${hhmm(t.departure_at)} · ${esc(t.origin)} → ${esc(t.destination)} · ${esc(t.operator)} · ${dateStr(t.departure_at)}</p>
+    <div class="scroll"><table><tr><th>Seat</th><th>Name</th><th>Phone</th><th>ID</th><th>Boarded</th></tr>
+    ${list.map((p) => `<tr><td><b>${p.seat_number}</b></td><td>${esc(p.full_name)}</td><td>${esc(p.phone)}</td><td>${esc(p.id_number)}</td>
+      <td>${p.boarded ? '<span class="pill ok">Yes</span>' : '<span class="pill info">No</span>'}</td></tr>`).join('') || '<tr><td colspan=5 class="muted">No paid bookings yet.</td></tr>'}</table></div>
+    <p class="noprint" style="text-align:right"><button class="btn sec" id="x">Close</button> <button class="btn" id="pr">Print</button></p>`);
+  $('#x', o).onclick = () => o.remove();
+  $('#pr', o).onclick = () => window.print();
+}
+
+// ---------------- bookings ----------------
+async function pageBookings(c) {
+  c.innerHTML = `<div class="bar"><h1>Bookings</h1><input id="q" placeholder="Search booking ID, name or phone" style="min-width:260px" value="${esc(state.q || '')}"></div><div class="card scroll" id="l"></div>`;
+  const load = guard(async () => {
+    const rows = await api('/bookings?q=' + encodeURIComponent(state.q || ''));
+    $('#l').innerHTML = `<table><tr><th>Booking</th><th>Trip</th><th>Passengers</th><th>Booked by</th><th>Status</th><th class="right">Amount</th></tr>
+      ${rows.map((b) => `<tr><td><b>${esc(b.ref)}</b><br><span class="muted">${dateStr(b.created_at)}</span></td>
+        <td>${esc(b.origin)} → ${esc(b.destination)}<br><span class="muted">${dateStr(b.departure_at)} ${hhmm(b.departure_at)} · ${esc(b.operator)}</span></td>
+        <td>${(b.passengers || []).map((p) => `${esc(p.fullName)} (seat ${p.seat})${p.boarded ? ' ✓' : ''}`).join('<br>')}</td>
+        <td>${esc(b.user_phone)}</td><td><span class="pill ${b.status === 'confirmed' ? 'ok' : 'bad'}">${esc(b.status)}</span></td>
+        <td class="right">${money(b.total_amount)}</td></tr>`).join('') || '<tr><td colspan=6 class="muted">No bookings found.</td></tr>'}</table>`;
+  });
+  let t; $('#q').oninput = (e) => { state.q = e.target.value; clearTimeout(t); t = setTimeout(load, 300); };
+  load();
+}
+
+// ---------------- scan ----------------
+async function pageScan(c) {
+  c.innerHTML = `<div class="bar"><h1>Scan ticket</h1></div>
+    <div class="card"><label style="margin-top:0">Booking ID (type it, or use a barcode scanner)</label>
+    <div style="display:flex;gap:10px"><input id="ref" placeholder="MG202610220001" autofocus style="text-transform:uppercase"><button class="btn" id="go">Check</button></div></div><div id="res"></div>`;
+  const check = guard(async () => {
+    const ref = $('#ref').value.trim(); if (!ref) return;
+    $('#res').innerHTML = '';
+    let r;
+    try { r = await api('/scan/' + encodeURIComponent(ref)); }
+    catch (e) { $('#res').innerHTML = `<div class="big bad">${esc(e.message)}</div>`; return; }
+    const b = r.booking;
+    $('#res').innerHTML = `<div class="card">
+      ${r.problem ? `<div class="big bad">${esc(r.problem)}</div>` : r.allBoarded ? '<div class="big info">Already boarded. Check this is not a reused ticket.</div>' : '<div class="big ok">Valid ticket</div>'}
+      <p><b>${esc(b.ref)}</b> · ${esc(b.origin)} → ${esc(b.destination)} · ${dateStr(b.departure_at)} ${hhmm(b.departure_at)} · ${esc(b.operator)}</p>
+      <table><tr><th>Seat</th><th>Name</th><th>ID</th><th>Boarded</th></tr>
+      ${(b.passengers || []).map((p) => `<tr><td><b>${p.seat}</b></td><td>${esc(p.fullName)}</td><td>${esc(p.idNumber)}</td><td>${p.boarded ? 'Yes' : 'No'}</td></tr>`).join('')}</table>
+      ${!r.problem && !r.allBoarded ? '<p><button class="btn" id="board">Mark all as boarded</button></p>' : ''}</div>`;
+    const bb = $('#board'); if (bb) bb.onclick = guard(async () => { await api(`/scan/${encodeURIComponent(b.ref)}/board`, { method: 'POST' }); toast('Boarded'); $('#ref').value = ''; $('#res').innerHTML = '<div class="big ok">Boarded. Next passenger.</div>'; $('#ref').focus(); });
+  });
+  $('#go').onclick = check; $('#ref').onkeydown = (e) => { if (e.key === 'Enter') check(); };
+}
+
+// ---------------- operators / routes / staff ----------------
+async function pageOperators(c) {
+  const ops = await api('/operators');
+  c.innerHTML = `<div class="bar"><h1>Operators</h1></div>
+    <div class="card"><div style="display:flex;gap:10px"><input id="n" placeholder="New operator name, e.g. Selam Minibus"><button class="btn" id="add">Add</button></div></div>
+    <div class="card scroll"><table><tr><th>Name</th><th>Rating</th><th>Reviews</th></tr>${ops.map((o) => `<tr><td>${esc(o.name)}</td><td>${o.rating}</td><td>${o.reviews_count}</td></tr>`).join('')}</table></div>`;
+  $('#add').onclick = guard(async () => { await api('/operators', { method: 'POST', body: { name: $('#n').value } }); toast('Operator added'); render(); });
+}
+
+async function pageRoutes(c) {
+  const rs = await api('/routes');
+  c.innerHTML = `<div class="bar"><h1>Routes</h1></div>
+    <div class="card"><div class="row2"><div><label style="margin-top:0">From</label><input id="o"></div><div><label style="margin-top:0">To</label><input id="d"></div>
+      <div><label>Distance (km)</label><input id="k" type="number"></div><div><label>Duration (minutes)</label><input id="m" type="number"></div></div>
+      <label><input type="checkbox" id="rt" checked style="width:auto"> Also add the return route</label>
+      <p><button class="btn" id="add">Add route</button></p></div>
+    <div class="card scroll"><table><tr><th>Route</th><th>Distance</th><th>Duration</th><th>Photo</th></tr>
+    ${rs.map((r) => `<tr><td>${esc(r.origin)} → ${esc(r.destination)}</td><td>${r.distance_km} km</td><td>${Math.floor(r.duration_min / 60)}h ${pad(r.duration_min % 60)}m</td><td class="muted">${esc(r.image_url || '-')} <button class="btn sm sec" data-img="${r.id}">Change</button></td></tr>`).join('')}</table></div><p class="muted">Photos live in backend/public/images/routes/. Put a file there (for example bahir-dar.jpg) and it shows in the app.</p>`;
+  c.querySelectorAll('[data-img]').forEach((b) => b.onclick = guard(async () => { const cur = rs.find((x) => String(x.id) === b.dataset.img); const v = prompt('Photo path or https link', cur.image_url || ''); if (v === null) return; await api('/routes/' + b.dataset.img, { method: 'PATCH', body: { imageUrl: v } }); toast('Saved'); render(); }));
+  $('#add').onclick = guard(async () => {
+    const r = await api('/routes', { method: 'POST', body: { origin: $('#o').value, destination: $('#d').value, distanceKm: Number($('#k').value), durationMin: Number($('#m').value), addReturn: $('#rt').checked } });
+    toast(r.added ? 'Route added' : 'That route already exists'); render();
+  });
+}
+
+async function pageStaff(c) {
+  const [staff, ops] = await Promise.all([api('/staff'), api('/operators')]);
+  c.innerHTML = `<div class="bar"><h1>Staff accounts</h1></div>
+    <div class="card"><div class="row2">
+      <div><label style="margin-top:0">Username / Staff ID</label><input id="u" autocomplete="off"></div><div><label style="margin-top:0">Full name</label><input id="fn"></div>
+      <div><label>Phone (optional)</label><input id="ph" placeholder="0911 223344"></div><div></div>
+      <div><label>Password (8+ characters)</label><input id="pw" type="password" autocomplete="new-password"></div>
+      <div><label>Role</label><select id="ro"><option value="operator">Operator (manages trips)</option><option value="scanner">Scanner (station staff)</option><option value="admin">Admin (everything)</option></select></div></div>
+      <label>Works for</label><select id="op">${ops.map((o) => `<option value="${o.id}">${esc(o.name)}</option>`).join('')}</select>
+      <p><button class="btn" id="add">Create account</button></p></div>
+    <div class="card scroll"><table><tr><th>Username</th><th>Name</th><th>Role</th><th>Operator</th><th>Status</th><th></th></tr>
+    ${staff.map((s) => `<tr><td>${esc(s.username)}</td><td>${esc(s.fullName)}</td><td>${esc(s.role)}</td><td>${esc(s.operator || '-')}</td>
+      <td><span class="pill ${s.active ? 'ok' : 'bad'}">${s.active ? 'active' : 'disabled'}</span></td>
+      <td class="right"><button class="btn sm sec" data-pw="${s.id}">Reset password</button><button class="btn sm sec" data-t="${s.id}">${s.active ? 'Disable' : 'Enable'}</button></td></tr>`).join('')}</table></div>`;
+  $('#add').onclick = guard(async () => {
+    await api('/staff', { method: 'POST', body: { username: $('#u').value, fullName: $('#fn').value, phone: $('#ph').value, password: $('#pw').value, role: $('#ro').value, operatorId: Number($('#op').value) } });
+    toast('Account created'); render();
+  });
+  c.querySelectorAll('[data-pw]').forEach((b) => b.onclick = guard(async () => { const v = prompt('New password for this person (8+ characters)'); if (!v) return; await api(`/staff/${b.dataset.pw}/password`, { method: 'POST', body: { password: v } }); toast('Password changed. Tell the person.'); }));
+  c.querySelectorAll('[data-t]').forEach((b) => b.onclick = guard(async () => { await api(`/staff/${b.dataset.t}/toggle`, { method: 'POST' }); render(); }));
+}
+
+async function pageMessages(c) {
+  const [msgs, ops] = await Promise.all([api('/messages'), api('/operators')]);
+  const KINDS = { operations: 'Operations', support: 'Support', system: 'System', driver: 'Driver' };
+  c.innerHTML = `<div class="bar"><h1>Messages to staff</h1></div>
+    <div class="card"><p class="muted" style="margin-top:0">Appears in the Messages tab of the staff app, for example "Trip 2 delayed by 15 minutes".</p>
+      <label style="margin-top:0">Title</label><input id="ti" maxlength="80" placeholder="Short headline">
+      <label>Details (optional)</label><input id="bo" maxlength="500">
+      <div class="row2"><div><label>Type</label><select id="ki">${Object.entries(KINDS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select></div>
+        <div><label>Send to</label><select id="to">${me.role === 'admin' ? '<option value="">Everyone</option>' : ''}${ops.map((o) => `<option value="${o.id}">${esc(o.name)}</option>`).join('')}</select></div></div>
+      <p><button class="btn" id="send">Send</button></p></div>
+    <div class="card scroll"><table><tr><th>When</th><th>Type</th><th>Message</th><th>To</th><th></th></tr>
+    ${msgs.map((m) => `<tr><td class="muted">${dateStr(m.created_at)} ${hhmm(m.created_at)}</td><td>${esc(KINDS[m.kind] || m.kind)}</td>
+      <td><b>${esc(m.title)}</b><br><span class="muted">${esc(m.body)}</span></td><td>${esc(m.operator || 'Everyone')}</td>
+      <td class="right"><button class="btn sm red" data-del="${m.id}">Delete</button></td></tr>`).join('') || '<tr><td colspan=5 class="muted">No messages yet.</td></tr>'}</table></div>`;
+  $('#send').onclick = guard(async () => {
+    await api('/messages', { method: 'POST', body: { title: $('#ti').value, body: $('#bo').value, kind: $('#ki').value, operatorId: $('#to').value ? Number($('#to').value) : undefined } });
+    toast('Sent'); render();
+  });
+  c.querySelectorAll('[data-del]').forEach((b) => b.onclick = guard(async () => { if (!confirm('Delete this message?')) return; await api('/messages/' + b.dataset.del, { method: 'DELETE' }); render(); }));
+}
+
+render();
+</script>
+</body>
+</html>
